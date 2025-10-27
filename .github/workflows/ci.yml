@@ -20,7 +20,8 @@ jobs:
         run: docker build -t devsecops-lab:latest .
 
       - name: Run Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@v0.16.0
+        uses: aquasecurity/trivy-action@v0.22.0
+
 
         with:
           image-ref: devsecops-lab:latest
