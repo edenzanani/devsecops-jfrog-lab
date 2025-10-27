@@ -1,0 +1,44 @@
+name: CI DevSecOps Lab
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker Image
+        run: docker build -t devsecops-lab:latest .
+
+      - name: Run Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@v0.13.1
+        with:
+          image-ref: devsecops-lab:latest
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
+      - name: Generate SBOM with Syft
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b . v0.96.0
+          ./syft devsecops-lab:latest -o cyclonedx-json=sbom.json
+
+      - name: Upload SBOM to Artifactory
+        env:
+          ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
+          ARTIFACTORY_USER: ${{ secrets.ARTIFACTORY_USER }}
+          ARTIFACTORY_APIKEY: ${{ secrets.ARTIFACTORY_APIKEY }}
+        run: |
+          curl -u"${ARTIFACTORY_USER}:${ARTIFACTORY_APIKEY}" \
+            -X PUT "${ARTIFACTORY_URL}/generic-local/sbom.json" \
+            -T sbom.json
